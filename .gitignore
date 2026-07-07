@@ -1,0 +1,8 @@
+node_modules
+.next
+.turbo
+.env
+.env.local
+dist
+.DS_Store
+supabase/.temp
