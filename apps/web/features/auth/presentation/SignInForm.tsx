@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "@/features/auth/application/sign-in";
+import { initializeKeysIfNeeded } from "@/features/crypto/application/initialize-keys";
 
 export function SignInForm() {
   const router = useRouter();
@@ -18,13 +19,21 @@ export function SignInForm() {
 
     const result = await signIn({ email, password });
 
-    setSubmitting(false);
-
     if (!result.success) {
+      setSubmitting(false);
       setError(result.message);
       return;
     }
 
+    // ログイン時にも鍵の存在を確認し、無ければ初期化する。
+    // （GRANT不足など過去の失敗で鍵が未登録のまま残っているケースを救済する）
+    try {
+      await initializeKeysIfNeeded(result.user.id);
+    } catch (keyError) {
+      console.error("鍵の初期化に失敗しました:", keyError);
+    }
+
+    setSubmitting(false);
     router.push("/");
     router.refresh();
   }
