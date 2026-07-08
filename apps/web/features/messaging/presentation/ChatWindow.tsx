@@ -7,6 +7,11 @@ import { subscribeToNewMessages } from "@/features/messaging/infrastructure/mess
 import { decryptMessage } from "@/features/messaging/infrastructure/message-crypto";
 import { loadKeyPair } from "@/features/crypto/infrastructure/local-key-store";
 import { fetchPublicKey } from "@/features/crypto/infrastructure/public-key-repository";
+import {
+  markReceivedMessagesAsRead,
+  getReceiptsForConversation,
+  subscribeToConversationReceipts,
+} from "@/features/messaging/application/read-receipts";
 import type { DecryptedMessage } from "@/features/messaging/domain/message";
 
 type Props = {
@@ -17,17 +22,46 @@ type Props = {
 
 export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props) {
   const [messages, setMessages] = useState<DecryptedMessage[]>([]);
+  const [readMessageIds, setReadMessageIds] = useState<Set<string>>(new Set());
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getDecryptedMessages(conversationId, currentUserId, otherUserId)
-      .then(setMessages)
-      .catch((e) => setError(e instanceof Error ? e.message : "取得に失敗しました。"));
+    let receiptUnsubscribe: (() => void) | null = null;
 
-    const unsubscribe = subscribeToNewMessages(conversationId, async (encrypted) => {
+    getDecryptedMessages(conversationId, currentUserId, otherUserId).then(
+      async (fetched) => {
+        setMessages(fetched);
+
+        // 自分宛てのメッセージに既読を付ける
+        const messageIds = fetched.map((m) => m.id);
+        const senderIds = fetched.map((m) => m.senderId);
+        await markReceivedMessagesAsRead(messageIds, senderIds, currentUserId);
+
+        // 既存の既読状況を取得（相手が自分のメッセージを読んだかどうか）
+        const receipts = await getReceiptsForConversation(conversationId);
+        const readIds = new Set(
+          receipts.filter((r) => r.status === "read").map((r) => r.messageId),
+        );
+        setReadMessageIds(readIds);
+
+        // 今後の既読状況の変化をRealtimeで購読する
+        const relevantIds = new Set(messageIds);
+        receiptUnsubscribe = subscribeToConversationReceipts(
+          conversationId,
+          relevantIds,
+          (receipt) => {
+            if (receipt.status === "read") {
+              setReadMessageIds((prev) => new Set(prev).add(receipt.messageId));
+            }
+          },
+        );
+      },
+    );
+
+    const messageUnsubscribe = subscribeToNewMessages(conversationId, async (encrypted) => {
       try {
         const myKeyPair = await loadKeyPair(currentUserId);
         const senderPublicKey = await fetchPublicKey(encrypted.senderId);
@@ -50,12 +84,25 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
             createdAt: encrypted.createdAt,
           },
         ]);
+
+        // 新着メッセージが自分宛てなら、即座に既読を付ける
+        // （会話画面を開いている＝見ている、とみなす）
+        if (encrypted.senderId !== currentUserId) {
+          await markReceivedMessagesAsRead(
+            [encrypted.id],
+            [encrypted.senderId],
+            currentUserId,
+          );
+        }
       } catch {
         // 復号できない新着は無視する
       }
     });
 
-    return unsubscribe;
+    return () => {
+      messageUnsubscribe();
+      receiptUnsubscribe?.();
+    };
   }, [conversationId, currentUserId, otherUserId]);
 
   useEffect(() => {
@@ -81,7 +128,6 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
       return;
     }
 
-    // 自分の送信分は即座に画面に反映（Realtimeの折り返しを待たない）
     setMessages((prev) => [
       ...prev,
       {
@@ -94,6 +140,11 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
     ]);
   }
 
+  // 自分が送った最後のメッセージのIDを求める（そこにだけ既読ラベルを出す）
+  const lastOwnMessageId = [...messages]
+    .reverse()
+    .find((m) => m.senderId === currentUserId)?.id;
+
   return (
     <div className="flex h-screen flex-col">
       <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -105,16 +156,21 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         <div className="flex flex-col gap-2">
           {messages.map((m) => {
             const isMine = m.senderId === currentUserId;
+            const showReadLabel =
+              isMine && m.id === lastOwnMessageId && readMessageIds.has(m.id);
+
             return (
-              <div
-                key={m.id}
-                className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                  isMine
-                    ? "self-end bg-teal-700 text-white"
-                    : "self-start bg-neutral-800 text-neutral-100"
-                }`}
-              >
-                {m.plaintext}
+              <div key={m.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+                <div
+                  className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
+                    isMine ? "bg-teal-700 text-white" : "bg-neutral-800 text-neutral-100"
+                  }`}
+                >
+                  {m.plaintext}
+                </div>
+                {showReadLabel && (
+                  <span className="mt-0.5 text-xs text-neutral-500">既読</span>
+                )}
               </div>
             );
           })}
