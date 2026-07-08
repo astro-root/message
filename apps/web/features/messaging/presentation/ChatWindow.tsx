@@ -141,7 +141,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
   }
 
   // 自分が送った最後のメッセージのIDを求める（そこにだけ既読ラベルを出す）
-  const lastOwnMessageId = [...messages]
+  console.log("[debug] readMessageIds:", [...readMessageIds]); const lastOwnMessageId = [...messages]
     .reverse()
     .find((m) => m.senderId === currentUserId)?.id;
 
