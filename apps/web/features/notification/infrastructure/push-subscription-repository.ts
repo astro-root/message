@@ -4,18 +4,25 @@ import type { PushSubscriptionData } from "@/features/notification/domain/subscr
 /**
  * base64url文字列をUint8Arrayに変換する。
  * PushManager.subscribe()のapplicationServerKeyに必要な形式。
+ *
+ * TypeScript 5.9系ではUint8Arrayのbuffer型がArrayBufferLike
+ * （SharedArrayBufferを含みうる）として扱われ、PushManagerが
+ * 期待するBufferSource（ArrayBuffer限定）と型が合わないため、
+ * 明示的にArrayBufferへコピーして型を確定させる。
  */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+
+  const buffer = new ArrayBuffer(rawData.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < rawData.length; i++) {
+    view[i] = rawData.charCodeAt(i);
+  }
+  return view;
 }
 
-/**
- * ブラウザのService Workerを登録し、Push購読を行う。
- * 通知許可がすでに拒否されている場合はnullを返す。
- */
 export async function subscribeToPush(): Promise<PushSubscriptionData | null> {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
     throw new Error("この端末はプッシュ通知に対応していません。");
