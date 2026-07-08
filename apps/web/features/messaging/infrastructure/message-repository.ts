@@ -3,8 +3,8 @@ import type { EncryptedMessage } from "@/features/messaging/domain/message";
 
 /**
  * bytea <-> Uint8Array の変換。
- * Supabaseはbytea列をhex文字列（\x接頭辞付き）で返すことがあるため、
- * crypto機能のpublic-key-repositoryと同じ方式で統一する。
+ * Postgresのbytea型は \x 接頭辞付きのhex文字列でやり取りする必要がある。
+ * 書き込み時に \x を付け、読み込み時に \x を取り除く（対称にすることが重要）。
  */
 function hexToBytes(hex: string): Uint8Array {
   const clean = hex.startsWith("\\x") ? hex.slice(2) : hex;
@@ -12,7 +12,7 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 function bytesToHex(bytes: Uint8Array): string {
-  return Buffer.from(bytes).toString("hex");
+  return "\\x" + Buffer.from(bytes).toString("hex");
 }
 
 export async function fetchMessages(
@@ -61,11 +61,6 @@ export async function sendEncryptedMessage(
   }
 }
 
-/**
- * 新着メッセージのRealtime購読。
- * 呼び出し側でunsubscribe用のcleanup関数を保持し、
- * コンポーネントのアンマウント時に必ず呼ぶこと。
- */
 export function subscribeToNewMessages(
   conversationId: string,
   onNewMessage: (message: EncryptedMessage) => void,
