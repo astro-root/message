@@ -3,7 +3,20 @@ import { createClient as createBrowserSupabaseClient } from "@/shared/infrastruc
 /**
  * user_keysテーブルへの公開鍵の登録・取得。
  * ここで扱うのは常に公開鍵（Uint8Array）のみで、秘密鍵は一切扱わない。
+ *
+ * Postgresのbytea型は \x 接頭辞付きのhex文字列でやり取りされる。
+ * 書き込み時に \x を付け、読み込み時に \x を取り除く必要がある
+ * （message-repository.tsと同じ方式で統一する）。
  */
+
+function bytesToHex(bytes: Uint8Array): string {
+  return "\\x" + Buffer.from(bytes).toString("hex");
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = hex.startsWith("\\x") ? hex.slice(2) : hex;
+  return new Uint8Array(Buffer.from(clean, "hex"));
+}
 
 export async function uploadPublicKey(
   userId: string,
@@ -13,7 +26,7 @@ export async function uploadPublicKey(
 
   const { error } = await supabase.from("user_keys").upsert({
     user_id: userId,
-    public_key: Buffer.from(publicKey).toString("hex"),
+    public_key: bytesToHex(publicKey),
   });
 
   if (error) {
@@ -36,5 +49,5 @@ export async function fetchPublicKey(
     return null;
   }
 
-  return new Uint8Array(Buffer.from(data.public_key, "hex"));
+  return hexToBytes(data.public_key);
 }
