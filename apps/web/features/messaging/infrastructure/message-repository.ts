@@ -56,40 +56,65 @@ export async function sendEncryptedMessage(
   }
 }
 
+/**
+ * 新着メッセージのRealtime購読。
+ *
+ * 重要: Realtimeソケットには、通常のAPIリクエストと異なり
+ * ユーザーのJWTが自動で伝播しないことがある。
+ * その場合、Realtime接続は実質anonロール扱いになり、auth.uid()がnullになるため、
+ * RLSポリシー（cm.user_id = auth.uid()）を誰も満たせず、
+ * 送信者・受信者の両方が何も受け取れなくなる。
+ * 購読前に明示的にsetAuth()でアクセストークンを渡すことで、これを回避する。
+ */
 export function subscribeToNewMessages(
   conversationId: string,
   onNewMessage: (message: EncryptedMessage) => void,
 ): () => void {
   const supabase = createBrowserSupabaseClient();
 
-  const channel = supabase
-    .channel(`messages:${conversationId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-        filter: `conversation_id=eq.${conversationId}`,
-      },
-      (payload) => {
-        console.log("[debug] realtime payload received:", payload);
-        const row = payload.new as any;
-        onNewMessage({
-          id: row.id,
-          conversationId: row.conversation_id,
-          senderId: row.sender_id,
-          ciphertext: hexToBytes(row.ciphertext),
-          nonce: hexToBytes(row.nonce),
-          createdAt: row.created_at,
-        });
-      },
-    )
-    .subscribe((status, err) => {
-      console.log("[debug] realtime subscription status:", status, err);
-    });
+  let unsubscribed = false;
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+
+  (async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      supabase.realtime.setAuth(session.access_token);
+    }
+
+    if (unsubscribed) return;
+
+    channel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as any;
+          onNewMessage({
+            id: row.id,
+            conversationId: row.conversation_id,
+            senderId: row.sender_id,
+            ciphertext: hexToBytes(row.ciphertext),
+            nonce: hexToBytes(row.nonce),
+            createdAt: row.created_at,
+          });
+        },
+      )
+      .subscribe();
+  })();
 
   return () => {
-    supabase.removeChannel(channel);
+    unsubscribed = true;
+    if (channel) {
+      supabase.removeChannel(channel);
+    }
   };
 }
