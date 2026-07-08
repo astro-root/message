@@ -1,7 +1,9 @@
 import { encryptMessage } from "@/features/messaging/infrastructure/message-crypto";
 import { sendEncryptedMessage } from "@/features/messaging/infrastructure/message-repository";
+import { triggerMessageNotification } from "@/features/messaging/infrastructure/notification-trigger";
 import { loadKeyPair } from "@/features/crypto/infrastructure/local-key-store";
 import { fetchPublicKey } from "@/features/crypto/infrastructure/public-key-repository";
+import { getProfile } from "@/features/profile/application/get-profile";
 
 export type SendMessageResult =
   | { success: true }
@@ -37,6 +39,17 @@ export async function sendMessage(
       recipientPublicKey,
     );
     await sendEncryptedMessage(conversationId, currentUserId, ciphertext, nonce);
+
+    // 通知はベストエフォート。失敗してもメッセージ送信自体は成功として扱う。
+    const myProfile = await getProfile(currentUserId);
+    if (myProfile) {
+      triggerMessageNotification(
+        recipientUserId,
+        myProfile.displayName,
+        conversationId,
+      );
+    }
+
     return { success: true };
   } catch (error) {
     const message =
