@@ -1,17 +1,11 @@
 import webpush from "https://esm.sh/web-push@3.6.7";
 
-/**
- * メッセージ送信時にクライアントから呼ばれるEdge Function。
- * 受信者のpush_subscriptionsを全端末分取得し、Web Pushで通知を送る。
- *
- * 期待するリクエストボディ:
- * {
- *   recipientUserId: string,
- *   title: string,
- *   body: string,
- *   url?: string
- * }
- */
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const vapidPublicKey = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const vapidPrivateKey = Deno.env.get("VAPID_PRIVATE_KEY")!;
@@ -25,18 +19,26 @@ webpush.setVapidDetails(
 );
 
 Deno.serve(async (req) => {
+  // ブラウザが本番リクエスト前に送るCORSプリフライトに応答する。
+  // これが無いと、ブラウザからのfetch/functions.invoke自体が
+  // OPTIONSの時点で失敗し、本来のPOSTが届かない。
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     const { recipientUserId, title, body, url } = await req.json();
 
     if (!recipientUserId || !title || !body) {
       return new Response(
         JSON.stringify({ error: "recipientUserId, title, bodyは必須です。" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
       );
     }
 
-    // service_roleでpush_subscriptionsを取得する（RLSをバイパスして
-    // 受信者本人以外からの呼び出しでも配信できるようにするため）
     const res = await fetch(
       `${supabaseUrl}/rest/v1/push_subscriptions?user_id=eq.${recipientUserId}&select=endpoint,p256dh_key,auth_key`,
       {
@@ -63,12 +65,17 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ sent: results.length }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "unknown error" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
     );
   }
 });
