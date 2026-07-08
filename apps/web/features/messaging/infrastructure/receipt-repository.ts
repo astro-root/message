@@ -1,11 +1,6 @@
 import { createClient as createBrowserSupabaseClient } from "@/shared/infrastructure/supabase/client";
 import type { MessageReceipt } from "@/features/messaging/domain/receipt";
 
-/**
- * 指定したメッセージ群に既読マークを付ける。
- * 自分が送ったメッセージに自分で既読を付けることはない
- * （呼び出し側で「自分宛てのメッセージのみ」を渡す前提）。
- */
 export async function markMessagesAsRead(
   messageIds: string[],
   userId: string,
@@ -30,10 +25,6 @@ export async function markMessagesAsRead(
   }
 }
 
-/**
- * 会話内の全既読状況を取得する。
- * 「自分が送ったメッセージが、相手にいつ読まれたか」を知るために使う。
- */
 export async function fetchReceiptsForConversation(
   conversationId: string,
 ): Promise<MessageReceipt[]> {
@@ -56,9 +47,6 @@ export async function fetchReceiptsForConversation(
   }));
 }
 
-/**
- * 新しい既読状況をRealtimeで購読する。
- */
 export function subscribeToReceipts(
   conversationId: string,
   onReceiptChange: (receipt: MessageReceipt) => void,
@@ -85,6 +73,7 @@ export function subscribeToReceipts(
         "postgres_changes",
         { event: "*", schema: "public", table: "message_receipts" },
         (payload) => {
+          console.log("[debug] receipt payload:", payload);
           const row = payload.new as any;
           if (!row) return;
           onReceiptChange({
@@ -95,7 +84,9 @@ export function subscribeToReceipts(
           });
         },
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("[debug] receipt subscription status:", status, err);
+      });
   })();
 
   return () => {
