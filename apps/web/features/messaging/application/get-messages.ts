@@ -4,11 +4,6 @@ import { loadKeyPair } from "@/features/crypto/infrastructure/local-key-store";
 import { fetchPublicKey } from "@/features/crypto/infrastructure/public-key-repository";
 import type { DecryptedMessage } from "@/features/messaging/domain/message";
 
-/**
- * 会話のメッセージを取得し、この端末の秘密鍵で復号する。
- * 復号に失敗した個別のメッセージはスキップし、全体を失敗させない
- * （鍵のずれが1件あっても、他のメッセージは読めるようにするため）。
- */
 export async function getDecryptedMessages(
   conversationId: string,
   currentUserId: string,
@@ -25,6 +20,10 @@ export async function getDecryptedMessages(
   }
 
   const encryptedMessages = await fetchMessages(conversationId);
+
+  console.log("[debug] fetched encrypted messages:", encryptedMessages.length);
+  console.log("[debug] myPrivateKey length:", myKeyPair.privateKey.length);
+  console.log("[debug] otherPublicKey length:", otherPublicKey.length);
 
   const results: DecryptedMessage[] = [];
 
@@ -43,8 +42,8 @@ export async function getDecryptedMessages(
         plaintext,
         createdAt: msg.createdAt,
       });
-    } catch {
-      // このメッセージだけスキップ（鍵のローテーション等で復号できないケースを想定）
+    } catch (e) {
+      console.error("[debug] decrypt failed for message", msg.id, e);
       continue;
     }
   }
