@@ -1,11 +1,6 @@
 import { createClient as createBrowserSupabaseClient } from "@/shared/infrastructure/supabase/client";
 import type { EncryptedMessage } from "@/features/messaging/domain/message";
 
-/**
- * bytea <-> Uint8Array の変換。
- * Postgresのbytea型は \x 接頭辞付きのhex文字列でやり取りする必要がある。
- * 書き込み時に \x を付け、読み込み時に \x を取り除く（対称にすることが重要）。
- */
 function hexToBytes(hex: string): Uint8Array {
   const clean = hex.startsWith("\\x") ? hex.slice(2) : hex;
   return new Uint8Array(Buffer.from(clean, "hex"));
@@ -78,6 +73,7 @@ export function subscribeToNewMessages(
         filter: `conversation_id=eq.${conversationId}`,
       },
       (payload) => {
+        console.log("[debug] realtime payload received:", payload);
         const row = payload.new as any;
         onNewMessage({
           id: row.id,
@@ -89,7 +85,9 @@ export function subscribeToNewMessages(
         });
       },
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      console.log("[debug] realtime subscription status:", status, err);
+    });
 
   return () => {
     supabase.removeChannel(channel);
