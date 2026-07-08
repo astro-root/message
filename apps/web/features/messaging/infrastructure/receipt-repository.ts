@@ -73,7 +73,6 @@ export function subscribeToReceipts(
         "postgres_changes",
         { event: "*", schema: "public", table: "message_receipts" },
         (payload) => {
-          console.log("[debug] receipt payload:", payload);
           const row = payload.new as any;
           if (!row) return;
           onReceiptChange({
@@ -84,9 +83,7 @@ export function subscribeToReceipts(
           });
         },
       )
-      .subscribe((status, err) => {
-        console.log("[debug] receipt subscription status:", status, err);
-      });
+      .subscribe();
   })();
 
   return () => {
