@@ -19,9 +19,6 @@ webpush.setVapidDetails(
 );
 
 Deno.serve(async (req) => {
-  // ブラウザが本番リクエスト前に送るCORSプリフライトに応答する。
-  // これが無いと、ブラウザからのfetch/functions.invoke自体が
-  // OPTIONSの時点で失敗し、本来のPOSTが届かない。
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -50,6 +47,16 @@ Deno.serve(async (req) => {
     );
 
     const subscriptions = await res.json();
+
+    if (!Array.isArray(subscriptions)) {
+      return new Response(
+        JSON.stringify({ error: "subscriptions_not_array", detail: subscriptions }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     const results = await Promise.allSettled(
       subscriptions.map((sub: any) =>
