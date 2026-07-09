@@ -44,7 +44,10 @@ export function ConversationList({ currentUserId }: { currentUserId: string }) {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-900 text-sm font-medium text-blue-100">
               {c.otherUserDisplayName.slice(0, 1)}
             </span>
-            <span className="text-neutral-100">{c.otherUserDisplayName}</span>
+            <span className="flex flex-col">
+              <span className="text-neutral-100">{c.otherUserDisplayName}</span>
+              <span className="text-xs text-neutral-500">新しいメッセージ</span>
+            </span>
           </Link>
         </li>
       ))}
