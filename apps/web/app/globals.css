@@ -10,6 +10,26 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* インク基調のニュートラルパレット（純粋な黒ではなく、わずかに青みを帯びたトーン） */
+  --color-neutral-950: #12141a;
+  --color-neutral-900: #1a1d24;
+  --color-neutral-800: #242830;
+  --color-neutral-700: #343a46;
+  --color-neutral-500: #8b8f98;
+  --color-neutral-400: #a6aab2;
+  --color-neutral-300: #c7cad1;
+  --color-neutral-100: #edeef0;
+
+  /* シグナルブルー: 汎用的なTailwind標準の青ではなく、落ち着いた寒色寄りの単色アクセント */
+  --color-blue-950: #0d1b33;
+  --color-blue-900: #16294d;
+  --color-blue-700: #2b4fb0;
+  --color-blue-600: #3b5fdb;
+  --color-blue-500: #5b7be8;
+  --color-blue-400: #7c97ef;
+  --color-blue-300: #a8bbf5;
+  --color-blue-100: #dce4fb;
 }
 
 @media (prefers-color-scheme: dark) {
