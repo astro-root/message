@@ -147,6 +147,21 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
 
   return (
     <div className="flex h-screen flex-col">
+      <div className="flex items-center justify-center gap-1.5 border-b border-neutral-800 bg-neutral-950 px-4 py-2 text-xs text-neutral-400">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="h-3.5 w-3.5"
+        >
+          <path
+            fillRule="evenodd"
+            d="M12 1.5a5.25 5.25 0 00-5.25 5.25v3a3 3 0 00-3 3v6.75a3 3 0 003 3h10.5a3 3 0 003-3v-6.75a3 3 0 00-3-3v-3c0-2.9-2.35-5.25-5.25-5.25zm3.75 8.25v-3a3.75 3.75 0 10-7.5 0v3h7.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+        <span>エンドツーエンドで暗号化されています</span>
+      </div>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {error && (
           <p className="mb-3 rounded-xl border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
