@@ -63,7 +63,7 @@ export function SignUpForm() {
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           required
-          className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+          className="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           placeholder="taro_yamada"
         />
       </div>
@@ -78,7 +78,7 @@ export function SignUpForm() {
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           required
-          className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+          className="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           placeholder="山田太郎"
         />
       </div>
@@ -93,7 +93,7 @@ export function SignUpForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+          className="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           placeholder="you@example.com"
         />
       </div>
@@ -108,13 +108,13 @@ export function SignUpForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="rounded-md border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+          className="rounded-xl border border-neutral-700 bg-neutral-950 px-3 py-2 text-neutral-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           placeholder="8文字以上"
         />
       </div>
 
       {error && (
-        <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-xl border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
           {error}
         </p>
       )}
@@ -122,7 +122,7 @@ export function SignUpForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="mt-2 rounded-md bg-teal-600 px-4 py-2 font-medium text-white transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="mt-2 rounded-xl bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {submitting ? "作成中..." : "アカウントを作成"}
       </button>

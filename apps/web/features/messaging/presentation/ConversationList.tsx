@@ -23,7 +23,7 @@ export function ConversationList({ currentUserId }: { currentUserId: string }) {
 
   if (error) {
     return (
-      <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+      <p className="rounded-xl border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
         {error}
       </p>
     );
@@ -41,7 +41,7 @@ export function ConversationList({ currentUserId }: { currentUserId: string }) {
             href={`/conversations/${c.id}?otherUserId=${c.otherUserId}`}
             className="flex items-center gap-3 px-3 py-3 transition-colors hover:bg-neutral-900"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-900 text-sm font-medium text-teal-100">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-900 text-sm font-medium text-blue-100">
               {c.otherUserDisplayName.slice(0, 1)}
             </span>
             <span className="text-neutral-100">{c.otherUserDisplayName}</span>

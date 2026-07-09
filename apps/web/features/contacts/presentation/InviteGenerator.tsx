@@ -38,26 +38,26 @@ export function InviteGenerator({ userId }: { userId: string }) {
         type="button"
         onClick={handleGenerate}
         disabled={generating}
-        className="rounded-md bg-teal-600 px-4 py-2 font-medium text-white transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-xl bg-blue-600 px-4 py-2 font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {generating ? "発行中..." : "招待コードを発行"}
       </button>
 
       {error && (
-        <p className="rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-xl border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
           {error}
         </p>
       )}
 
       {code && (
-        <div className="flex items-center justify-between rounded-md border border-neutral-700 bg-neutral-950 px-4 py-3">
+        <div className="flex items-center justify-between rounded-xl border border-neutral-700 bg-neutral-950 px-4 py-3">
           <span className="font-mono text-lg tracking-widest text-neutral-100">
             {code}
           </span>
           <button
             type="button"
             onClick={handleCopy}
-            className="text-sm text-teal-400 hover:text-teal-300"
+            className="text-sm text-blue-400 hover:text-blue-300"
           >
             {copied ? "コピーしました" : "コピー"}
           </button>
