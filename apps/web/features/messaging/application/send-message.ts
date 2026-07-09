@@ -6,7 +6,7 @@ import { fetchPublicKey } from "@/features/crypto/infrastructure/public-key-repo
 import { getProfile } from "@/features/profile/application/get-profile";
 
 export type SendMessageResult =
-  | { success: true }
+  | { success: true; messageId: string }
   | { success: false; message: string };
 
 export async function sendMessage(
@@ -38,9 +38,13 @@ export async function sendMessage(
       myKeyPair.privateKey,
       recipientPublicKey,
     );
-    await sendEncryptedMessage(conversationId, currentUserId, ciphertext, nonce);
+    const messageId = await sendEncryptedMessage(
+      conversationId,
+      currentUserId,
+      ciphertext,
+      nonce,
+    );
 
-    // 通知はベストエフォート。失敗してもメッセージ送信自体は成功として扱う。
     const myProfile = await getProfile(currentUserId);
     if (myProfile) {
       triggerMessageNotification(
@@ -50,7 +54,7 @@ export async function sendMessage(
       );
     }
 
-    return { success: true };
+    return { success: true, messageId };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "メッセージの送信に失敗しました。";

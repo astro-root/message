@@ -27,6 +27,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const relevantMessageIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let receiptUnsubscribe: (() => void) | null = null;
@@ -35,23 +36,21 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
       async (fetched) => {
         setMessages(fetched);
 
-        // 自分宛てのメッセージに既読を付ける
         const messageIds = fetched.map((m) => m.id);
         const senderIds = fetched.map((m) => m.senderId);
         await markReceivedMessagesAsRead(messageIds, senderIds, currentUserId);
 
-        // 既存の既読状況を取得（相手が自分のメッセージを読んだかどうか）
+        messageIds.forEach((id) => relevantMessageIdsRef.current.add(id));
+
         const receipts = await getReceiptsForConversation(conversationId);
         const readIds = new Set(
           receipts.filter((r) => r.status === "read").map((r) => r.messageId),
         );
         setReadMessageIds(readIds);
 
-        // 今後の既読状況の変化をRealtimeで購読する
-        const relevantIds = new Set(messageIds);
         receiptUnsubscribe = subscribeToConversationReceipts(
           conversationId,
-          relevantIds,
+          relevantMessageIdsRef.current,
           (receipt) => {
             if (receipt.status === "read") {
               setReadMessageIds((prev) => new Set(prev).add(receipt.messageId));
@@ -74,6 +73,8 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
           myKeyPair.privateKey,
         );
 
+        relevantMessageIdsRef.current.add(encrypted.id);
+
         setMessages((prev) => [
           ...prev,
           {
@@ -85,8 +86,6 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
           },
         ]);
 
-        // 新着メッセージが自分宛てなら、即座に既読を付ける
-        // （会話画面を開いている＝見ている、とみなす）
         if (encrypted.senderId !== currentUserId) {
           await markReceivedMessagesAsRead(
             [encrypted.id],
@@ -128,10 +127,12 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
       return;
     }
 
+    relevantMessageIdsRef.current.add(result.messageId);
+
     setMessages((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: result.messageId,
         conversationId,
         senderId: currentUserId,
         plaintext: text,
@@ -140,8 +141,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
     ]);
   }
 
-  // 自分が送った最後のメッセージのIDを求める（そこにだけ既読ラベルを出す）
-  console.log("[debug] readMessageIds:", [...readMessageIds]); const lastOwnMessageId = [...messages]
+  const lastOwnMessageId = [...messages]
     .reverse()
     .find((m) => m.senderId === currentUserId)?.id;
 

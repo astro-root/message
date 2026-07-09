@@ -40,32 +40,28 @@ export async function sendEncryptedMessage(
   senderId: string,
   ciphertext: Uint8Array,
   nonce: Uint8Array,
-): Promise<void> {
+): Promise<string> {
   const supabase = createBrowserSupabaseClient();
 
-  const { error } = await supabase.from("messages").insert({
-    conversation_id: conversationId,
-    sender_id: senderId,
-    ciphertext: bytesToHex(ciphertext),
-    nonce: bytesToHex(nonce),
-    message_type: "text",
-  });
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      ciphertext: bytesToHex(ciphertext),
+      nonce: bytesToHex(nonce),
+      message_type: "text",
+    })
+    .select("id")
+    .single();
 
   if (error) {
     throw new Error(`メッセージの送信に失敗しました: ${error.message}`);
   }
+
+  return data.id;
 }
 
-/**
- * 新着メッセージのRealtime購読。
- *
- * 重要: Realtimeソケットには、通常のAPIリクエストと異なり
- * ユーザーのJWTが自動で伝播しないことがある。
- * その場合、Realtime接続は実質anonロール扱いになり、auth.uid()がnullになるため、
- * RLSポリシー（cm.user_id = auth.uid()）を誰も満たせず、
- * 送信者・受信者の両方が何も受け取れなくなる。
- * 購読前に明示的にsetAuth()でアクセストークンを渡すことで、これを回避する。
- */
 export function subscribeToNewMessages(
   conversationId: string,
   onNewMessage: (message: EncryptedMessage) => void,
@@ -113,8 +109,6 @@ export function subscribeToNewMessages(
 
   return () => {
     unsubscribed = true;
-    if (channel) {
-      supabase.removeChannel(channel);
-    }
+    if (channel) supabase.removeChannel(channel);
   };
 }
