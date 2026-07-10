@@ -14,7 +14,7 @@ export default async function ContactsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex flex-1 max-w-sm flex-col gap-8 px-4 py-6">
       <div>
         <h1 className="text-xl font-semibold text-neutral-100">連絡先を追加</h1>
         <p className="mt-1 text-sm text-neutral-400">

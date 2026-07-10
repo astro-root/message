@@ -13,7 +13,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex flex-1 max-w-sm flex-col gap-8 px-4 py-6">
       <div>
         <h1 className="text-xl font-semibold text-neutral-100">設定</h1>
       </div>
