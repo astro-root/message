@@ -31,21 +31,21 @@ export default async function SettingsPage() {
         </h2>
         <div className="flex flex-col gap-3 rounded-xl border border-neutral-800 bg-neutral-900 p-4 text-sm text-neutral-300">
           <div className="flex items-start gap-2">
-            <span className="text-blue-400">✓</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="mt-0.5 h-4 w-4 shrink-0 text-blue-400"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
             <span>広告を表示しません。</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-blue-400">✓</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="mt-0.5 h-4 w-4 shrink-0 text-blue-400"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
             <span>行動のトラッキングを一切行いません。</span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-blue-400">✓</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="mt-0.5 h-4 w-4 shrink-0 text-blue-400"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
             <span>
               メッセージはエンドツーエンドで暗号化されており、運営者を含め、送信者と受信者以外は内容を読むことができません。
             </span>
           </div>
           <div className="flex items-start gap-2">
-            <span className="text-blue-400">✓</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="mt-0.5 h-4 w-4 shrink-0 text-blue-400"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
             <span>電話番号の登録は不要です。招待コードで連絡先を追加します。</span>
           </div>
         </div>
