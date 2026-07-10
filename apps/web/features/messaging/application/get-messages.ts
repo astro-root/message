@@ -1,14 +1,11 @@
 import { fetchMessages } from "@/features/messaging/infrastructure/message-repository";
 import { decryptMessage } from "@/features/messaging/infrastructure/message-crypto";
+import { decryptMedia } from "@/features/messaging/infrastructure/media-crypto";
+import { downloadEncryptedMedia } from "@/features/messaging/infrastructure/media-repository";
 import { loadKeyPair } from "@/features/crypto/infrastructure/local-key-store";
 import { fetchPublicKey } from "@/features/crypto/infrastructure/public-key-repository";
 import type { DecryptedMessage } from "@/features/messaging/domain/message";
 
-/**
- * 会話のメッセージを取得し、この端末の秘密鍵で復号する。
- * 復号に失敗した個別のメッセージはスキップし、全体を失敗させない
- * （鍵のずれが1件あっても、他のメッセージは読めるようにするため）。
- */
 export async function getDecryptedMessages(
   conversationId: string,
   currentUserId: string,
@@ -30,19 +27,43 @@ export async function getDecryptedMessages(
 
   for (const msg of encryptedMessages) {
     try {
-      const plaintext = await decryptMessage(
-        msg.ciphertext,
-        msg.nonce,
-        otherPublicKey,
-        myKeyPair.privateKey,
-      );
-      results.push({
-        id: msg.id,
-        conversationId: msg.conversationId,
-        senderId: msg.senderId,
-        plaintext,
-        createdAt: msg.createdAt,
-      });
+      if (msg.messageType === "image") {
+        if (!msg.mediaPath) continue;
+
+        const { ciphertext, nonce } = await downloadEncryptedMedia(msg.mediaPath);
+        const imageBytes = await decryptMedia(
+          ciphertext,
+          nonce,
+          otherPublicKey,
+          myKeyPair.privateKey,
+        );
+        const blob = new Blob([new Uint8Array(imageBytes).buffer as ArrayBuffer]);
+        const imageObjectUrl = URL.createObjectURL(blob);
+
+        results.push({
+          id: msg.id,
+          conversationId: msg.conversationId,
+          senderId: msg.senderId,
+          createdAt: msg.createdAt,
+          messageType: "image",
+          imageObjectUrl,
+        });
+      } else {
+        const plaintext = await decryptMessage(
+          msg.ciphertext,
+          msg.nonce,
+          otherPublicKey,
+          myKeyPair.privateKey,
+        );
+        results.push({
+          id: msg.id,
+          conversationId: msg.conversationId,
+          senderId: msg.senderId,
+          createdAt: msg.createdAt,
+          messageType: "text",
+          plaintext,
+        });
+      }
     } catch {
       continue;
     }

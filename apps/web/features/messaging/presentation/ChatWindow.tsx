@@ -3,8 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { getDecryptedMessages } from "@/features/messaging/application/get-messages";
 import { sendMessage } from "@/features/messaging/application/send-message";
+import { sendImageMessage } from "@/features/messaging/application/send-image-message";
 import { subscribeToNewMessages } from "@/features/messaging/infrastructure/message-repository";
 import { decryptMessage } from "@/features/messaging/infrastructure/message-crypto";
+import { decryptMedia } from "@/features/messaging/infrastructure/media-crypto";
+import { downloadEncryptedMedia } from "@/features/messaging/infrastructure/media-repository";
 import { loadKeyPair } from "@/features/crypto/infrastructure/local-key-store";
 import { fetchPublicKey } from "@/features/crypto/infrastructure/public-key-repository";
 import {
@@ -26,7 +29,9 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const relevantMessageIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -66,25 +71,50 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         const senderPublicKey = await fetchPublicKey(encrypted.senderId);
         if (!myKeyPair || !senderPublicKey) return;
 
-        const plaintext = await decryptMessage(
-          encrypted.ciphertext,
-          encrypted.nonce,
-          senderPublicKey,
-          myKeyPair.privateKey,
-        );
-
         relevantMessageIdsRef.current.add(encrypted.id);
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: encrypted.id,
-            conversationId: encrypted.conversationId,
-            senderId: encrypted.senderId,
-            plaintext,
-            createdAt: encrypted.createdAt,
-          },
-        ]);
+        if (encrypted.messageType === "image") {
+          if (!encrypted.mediaPath) return;
+          const { ciphertext, nonce } = await downloadEncryptedMedia(encrypted.mediaPath);
+          const imageBytes = await decryptMedia(
+            ciphertext,
+            nonce,
+            senderPublicKey,
+            myKeyPair.privateKey,
+          );
+          const imageObjectUrl = URL.createObjectURL(new Blob([new Uint8Array(imageBytes).buffer as ArrayBuffer]));
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: encrypted.id,
+              conversationId: encrypted.conversationId,
+              senderId: encrypted.senderId,
+              createdAt: encrypted.createdAt,
+              messageType: "image",
+              imageObjectUrl,
+            },
+          ]);
+        } else {
+          const plaintext = await decryptMessage(
+            encrypted.ciphertext,
+            encrypted.nonce,
+            senderPublicKey,
+            myKeyPair.privateKey,
+          );
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: encrypted.id,
+              conversationId: encrypted.conversationId,
+              senderId: encrypted.senderId,
+              createdAt: encrypted.createdAt,
+              messageType: "text",
+              plaintext,
+            },
+          ]);
+        }
 
         if (encrypted.senderId !== currentUserId) {
           await markReceivedMessagesAsRead(
@@ -135,8 +165,41 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         id: result.messageId,
         conversationId,
         senderId: currentUserId,
-        plaintext: text,
         createdAt: new Date().toISOString(),
+        messageType: "text",
+        plaintext: text,
+      },
+    ]);
+  }
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setUploadingImage(true);
+    setError(null);
+
+    const result = await sendImageMessage(conversationId, currentUserId, otherUserId, file);
+
+    setUploadingImage(false);
+
+    if (!result.success) {
+      setError(result.message);
+      return;
+    }
+
+    relevantMessageIdsRef.current.add(result.messageId);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: result.messageId,
+        conversationId,
+        senderId: currentUserId,
+        createdAt: new Date().toISOString(),
+        messageType: "image",
+        imageObjectUrl: URL.createObjectURL(file),
       },
     ]);
   }
@@ -162,6 +225,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         </svg>
         <span>エンドツーエンドで暗号化されています</span>
       </div>
+
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {error && (
           <p className="mb-3 rounded-xl border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300">
@@ -176,13 +240,22 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
 
             return (
               <div key={m.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-                <div
-                  className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                    isMine ? "bg-blue-700 text-white" : "bg-neutral-800 text-neutral-100"
-                  }`}
-                >
-                  {m.plaintext}
-                </div>
+                {m.messageType === "image" && m.imageObjectUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.imageObjectUrl}
+                    alt="送信された画像"
+                    className="max-w-[75%] rounded-xl"
+                  />
+                ) : (
+                  <div
+                    className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
+                      isMine ? "bg-blue-700 text-white" : "bg-neutral-800 text-neutral-100"
+                    }`}
+                  >
+                    {m.plaintext}
+                  </div>
+                )}
                 {showReadLabel && (
                   <span className="mt-0.5 text-xs text-neutral-500">既読</span>
                 )}
@@ -194,6 +267,27 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
       </div>
 
       <form onSubmit={handleSend} className="flex gap-2 border-t border-neutral-800 p-3">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          onChange={handleImageSelect}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingImage}
+          className="flex items-center justify-center rounded-xl border border-neutral-700 px-3 text-neutral-300 transition-colors hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+            <path
+              fillRule="evenodd"
+              d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
         <input
           type="text"
           value={input}

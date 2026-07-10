@@ -17,7 +17,7 @@ export async function fetchMessages(
 
   const { data, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, ciphertext, nonce, created_at")
+    .select("id, conversation_id, sender_id, ciphertext, nonce, created_at, message_type, media_path")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
@@ -32,12 +32,19 @@ export async function fetchMessages(
     ciphertext: hexToBytes(row.ciphertext),
     nonce: hexToBytes(row.nonce),
     createdAt: row.created_at,
+    messageType: row.message_type as "text" | "image",
+    mediaPath: row.media_path,
   }));
 }
 
-export async function sendEncryptedMessage(
+/**
+ * メッセージ行だけを先に作成する（画像の場合、media_pathはこのIDを
+ * ファイル名に使うため、先にIDを確定させる必要がある）。
+ */
+export async function insertMessageRow(
   conversationId: string,
   senderId: string,
+  messageType: "text" | "image",
   ciphertext: Uint8Array,
   nonce: Uint8Array,
 ): Promise<string> {
@@ -50,7 +57,7 @@ export async function sendEncryptedMessage(
       sender_id: senderId,
       ciphertext: bytesToHex(ciphertext),
       nonce: bytesToHex(nonce),
-      message_type: "text",
+      message_type: messageType,
     })
     .select("id")
     .single();
@@ -60,6 +67,31 @@ export async function sendEncryptedMessage(
   }
 
   return data.id;
+}
+
+export async function updateMessageMediaPath(
+  messageId: string,
+  mediaPath: string,
+): Promise<void> {
+  const supabase = createBrowserSupabaseClient();
+
+  const { error } = await supabase
+    .from("messages")
+    .update({ media_path: mediaPath })
+    .eq("id", messageId);
+
+  if (error) {
+    throw new Error(`画像情報の保存に失敗しました: ${error.message}`);
+  }
+}
+
+export async function sendEncryptedMessage(
+  conversationId: string,
+  senderId: string,
+  ciphertext: Uint8Array,
+  nonce: Uint8Array,
+): Promise<string> {
+  return insertMessageRow(conversationId, senderId, "text", ciphertext, nonce);
 }
 
 export function subscribeToNewMessages(
@@ -101,6 +133,8 @@ export function subscribeToNewMessages(
             ciphertext: hexToBytes(row.ciphertext),
             nonce: hexToBytes(row.nonce),
             createdAt: row.created_at,
+            messageType: row.message_type,
+            mediaPath: row.media_path,
           });
         },
       )
