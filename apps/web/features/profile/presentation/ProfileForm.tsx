@@ -105,7 +105,7 @@ export function ProfileForm({ userId }: { userId: string }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-sm text-neutral-400">ユーザー名</label>
-          <p className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 text-neutral-500">
+          <p className="rounded-xl border border-neutral-800 bg-neutral-900 px-3 py-2 font-mono tracking-wide text-neutral-500">
             @{username}
           </p>
           <p className="text-xs text-neutral-500">ユーザー名は変更できません。</p>
