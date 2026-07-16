@@ -30,10 +30,19 @@ export async function fetchConversations(
   // ネストしたレスポンスから「自分以外のメンバー」を抽出してサマリ化する
   const summaries: ConversationSummary[] = [];
 
-  for (const row of data ?? []) {
-    const members = (row as any).conversation?.conversation_members ?? [];
+  type ConversationMemberRow = {
+    user_id: string;
+    users: { id: string; display_name: string } | null;
+  };
+  type ConversationRow = {
+    conversation_id: string;
+    conversation?: { conversation_members: ConversationMemberRow[] };
+  };
+
+  for (const row of (data ?? []) as unknown as ConversationRow[]) {
+    const members = row.conversation?.conversation_members ?? [];
     const otherMember = members.find(
-      (m: any) => m.user_id !== currentUserId,
+      (m) => m.user_id !== currentUserId,
     );
 
     if (otherMember?.users) {

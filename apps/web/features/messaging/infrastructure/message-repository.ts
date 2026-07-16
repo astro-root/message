@@ -147,7 +147,18 @@ export function subscribeToNewMessages(
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as {
+            id: string;
+            conversation_id: string;
+            sender_id: string;
+            ciphertext: string;
+            nonce: string;
+            created_at: string;
+            message_type: "text" | "image";
+            media_path: string | null;
+            deleted_at: string | null;
+            reply_to_message_id: string | null;
+          };
           onNewMessage({
             id: row.id,
             conversationId: row.conversation_id,

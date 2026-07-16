@@ -39,7 +39,14 @@ export async function fetchReceiptsForConversation(
     throw new Error(`既読状況の取得に失敗しました: ${error.message}`);
   }
 
-  return (data ?? []).map((row: any) => ({
+  type ReceiptRow = {
+    message_id: string;
+    user_id: string;
+    status: "delivered" | "read";
+    updated_at: string;
+  };
+
+  return (data ?? []).map((row: ReceiptRow) => ({
     messageId: row.message_id,
     userId: row.user_id,
     status: row.status,
@@ -73,7 +80,12 @@ export function subscribeToReceipts(
         "postgres_changes",
         { event: "*", schema: "public", table: "message_receipts" },
         (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as {
+            message_id: string;
+            user_id: string;
+            status: "delivered" | "read";
+            updated_at: string;
+          };
           if (!row) return;
           onReceiptChange({
             messageId: row.message_id,
