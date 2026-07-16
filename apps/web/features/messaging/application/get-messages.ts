@@ -24,6 +24,7 @@ export async function getDecryptedMessages(
   const encryptedMessages = await fetchMessages(conversationId);
 
   const results: DecryptedMessage[] = [];
+  const plaintextById = new Map<string, string>();
 
   for (const msg of encryptedMessages) {
     if (msg.deletedAt) {
@@ -34,6 +35,7 @@ export async function getDecryptedMessages(
         createdAt: msg.createdAt,
         messageType: msg.messageType,
         isDeleted: true,
+        replyToMessageId: msg.replyToMessageId,
       });
       continue;
     }
@@ -60,6 +62,8 @@ export async function getDecryptedMessages(
           messageType: "image",
           imageObjectUrl,
           isDeleted: false,
+          replyToMessageId: msg.replyToMessageId,
+          replyPreviewText: msg.replyToMessageId ? "画像" : undefined,
         });
       } else {
         const plaintext = await decryptMessage(
@@ -68,6 +72,8 @@ export async function getDecryptedMessages(
           otherPublicKey,
           myKeyPair.privateKey,
         );
+        plaintextById.set(msg.id, plaintext);
+
         results.push({
           id: msg.id,
           conversationId: msg.conversationId,
@@ -76,6 +82,10 @@ export async function getDecryptedMessages(
           messageType: "text",
           plaintext,
           isDeleted: false,
+          replyToMessageId: msg.replyToMessageId,
+          replyPreviewText: msg.replyToMessageId
+            ? plaintextById.get(msg.replyToMessageId)
+            : undefined,
         });
       }
     } catch {

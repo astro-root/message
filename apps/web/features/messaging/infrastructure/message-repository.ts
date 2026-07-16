@@ -17,7 +17,7 @@ export async function fetchMessages(
 
   const { data, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, ciphertext, nonce, created_at, message_type, media_path, deleted_at")
+    .select("id, conversation_id, sender_id, ciphertext, nonce, created_at, message_type, media_path, deleted_at, reply_to_message_id")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
@@ -35,6 +35,7 @@ export async function fetchMessages(
     messageType: row.message_type as "text" | "image",
     mediaPath: row.media_path,
     deletedAt: row.deleted_at,
+    replyToMessageId: row.reply_to_message_id,
   }));
 }
 
@@ -48,6 +49,7 @@ export async function insertMessageRow(
   messageType: "text" | "image",
   ciphertext: Uint8Array,
   nonce: Uint8Array,
+  replyToMessageId?: string | null,
 ): Promise<string> {
   const supabase = createBrowserSupabaseClient();
 
@@ -59,6 +61,7 @@ export async function insertMessageRow(
       ciphertext: bytesToHex(ciphertext),
       nonce: bytesToHex(nonce),
       message_type: messageType,
+      reply_to_message_id: replyToMessageId ?? null,
     })
     .select("id")
     .single();
@@ -91,8 +94,9 @@ export async function sendEncryptedMessage(
   senderId: string,
   ciphertext: Uint8Array,
   nonce: Uint8Array,
+  replyToMessageId?: string | null,
 ): Promise<string> {
-  return insertMessageRow(conversationId, senderId, "text", ciphertext, nonce);
+  return insertMessageRow(conversationId, senderId, "text", ciphertext, nonce, replyToMessageId);
 }
 
 /**
@@ -154,6 +158,7 @@ export function subscribeToNewMessages(
             messageType: row.message_type,
             mediaPath: row.media_path,
             deletedAt: row.deleted_at,
+            replyToMessageId: row.reply_to_message_id,
           });
         },
       )

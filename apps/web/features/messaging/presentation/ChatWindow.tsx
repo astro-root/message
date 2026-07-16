@@ -33,6 +33,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<DecryptedMessage | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const relevantMessageIdsRef = useRef<Set<string>>(new Set());
@@ -108,6 +109,8 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
               messageType: "image",
               imageObjectUrl,
               isDeleted: false,
+              replyToMessageId: encrypted.replyToMessageId,
+              replyPreviewText: encrypted.replyToMessageId ? "画像" : undefined,
             },
           ]);
         } else {
@@ -118,18 +121,26 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
             myKeyPair.privateKey,
           );
 
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: encrypted.id,
-              conversationId: encrypted.conversationId,
-              senderId: encrypted.senderId,
-              createdAt: encrypted.createdAt,
-              messageType: "text",
-              plaintext,
-              isDeleted: false,
-            },
-          ]);
+          setMessages((prev) => {
+            const replySource = encrypted.replyToMessageId
+              ? prev.find((m) => m.id === encrypted.replyToMessageId)
+              : undefined;
+
+            return [
+              ...prev,
+              {
+                id: encrypted.id,
+                conversationId: encrypted.conversationId,
+                senderId: encrypted.senderId,
+                createdAt: encrypted.createdAt,
+                messageType: "text",
+                plaintext,
+                isDeleted: false,
+                replyToMessageId: encrypted.replyToMessageId,
+                replyPreviewText: replySource?.plaintext ?? replySource?.replyPreviewText,
+              },
+            ];
+          });
         }
 
         if (encrypted.senderId !== currentUserId) {
@@ -161,9 +172,17 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
     setSending(true);
     setError(null);
     const text = input;
+    const replyToId = replyTarget?.id ?? null;
     setInput("");
+    setReplyTarget(null);
 
-    const result = await sendMessage(conversationId, currentUserId, otherUserId, text);
+    const result = await sendMessage(
+      conversationId,
+      currentUserId,
+      otherUserId,
+      text,
+      replyToId,
+    );
 
     setSending(false);
 
@@ -185,6 +204,11 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         messageType: "text",
         plaintext: text,
         isDeleted: false,
+        replyToMessageId: replyToId,
+        replyPreviewText: replyToId
+          ? messages.find((m) => m.id === replyToId)?.plaintext ??
+            messages.find((m) => m.id === replyToId)?.replyPreviewText
+          : undefined,
       },
     ]);
   }
@@ -218,6 +242,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         messageType: "image",
         imageObjectUrl: URL.createObjectURL(file),
         isDeleted: false,
+        replyToMessageId: null,
       },
     ]);
   }
@@ -231,6 +256,11 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
     } catch (err) {
       setError(err instanceof Error ? err.message : "削除に失敗しました。");
     }
+  }
+
+  function scrollToMessage(messageId: string) {
+    const el = document.getElementById(`message-${messageId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   const lastOwnMessageId = [...messages]
@@ -271,6 +301,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
               return (
                 <div
                   key={m.id}
+                  id={`message-${m.id}`}
                   className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}
                 >
                   <div className="max-w-[75%] rounded-xl border border-neutral-800 px-3 py-2 text-sm italic text-neutral-500">
@@ -283,8 +314,18 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
             return (
               <div
                 key={m.id}
+                id={`message-${m.id}`}
                 className={`group flex flex-col ${isMine ? "items-end" : "items-start"}`}
               >
+                {m.replyToMessageId && (
+                  <button
+                    type="button"
+                    onClick={() => scrollToMessage(m.replyToMessageId!)}
+                    className="mb-1 max-w-[75%] truncate rounded-lg border-l-2 border-blue-500 bg-neutral-900 px-2 py-1 text-left text-xs text-neutral-400 hover:bg-neutral-800"
+                  >
+                    {m.replyPreviewText ?? "元のメッセージ"}
+                  </button>
+                )}
                 <div className="flex items-center gap-1.5">
                   {isMine && (
                     <button
@@ -318,6 +359,20 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
                       {m.plaintext}
                     </div>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setReplyTarget(m)}
+                    className="hidden text-neutral-600 hover:text-blue-400 group-hover:block"
+                    aria-label="返信"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                      <path
+                        fillRule="evenodd"
+                        d="M7.72 12.53a.75.75 0 010-1.06l7.5-7.5a.75.75 0 111.06 1.06L9.31 12l6.97 6.97a.75.75 0 11-1.06 1.06l-7.5-7.5z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
                 </div>
                 {showReadLabel && (
                   <span className="mt-0.5 text-xs text-neutral-500">既読</span>
@@ -328,6 +383,29 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         </div>
         <div ref={bottomRef} />
       </div>
+
+      {replyTarget && (
+        <div className="flex items-center justify-between border-t border-neutral-800 bg-neutral-900 px-4 py-2">
+          <div className="min-w-0 flex-1 border-l-2 border-blue-500 pl-2">
+            <p className="text-xs text-neutral-500">返信先</p>
+            <p className="truncate text-sm text-neutral-300">
+              {replyTarget.messageType === "image"
+                ? "画像"
+                : replyTarget.plaintext}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setReplyTarget(null)}
+            className="ml-2 text-neutral-500 hover:text-neutral-300"
+            aria-label="返信をキャンセル"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L10.94 12l-5.72 5.72a.75.75 0 101.06 1.06L12 13.06l5.72 5.72a.75.75 0 101.06-1.06L13.06 12l5.72-5.72a.75.75 0 00-1.06-1.06L12 10.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSend} className="flex gap-2 border-t border-neutral-800 p-3">
         <input

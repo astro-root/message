@@ -14,6 +14,7 @@ export async function sendMessage(
   currentUserId: string,
   recipientUserId: string,
   plaintext: string,
+  replyToMessageId?: string | null,
 ): Promise<SendMessageResult> {
   if (plaintext.trim().length === 0) {
     return { success: false, message: "メッセージを入力してください。" };
@@ -43,6 +44,7 @@ export async function sendMessage(
       currentUserId,
       ciphertext,
       nonce,
+      replyToMessageId,
     );
 
     const myProfile = await getProfile(currentUserId);
