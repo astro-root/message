@@ -22,7 +22,6 @@ export async function getDecryptedMessages(
   }
 
   const encryptedMessages = await fetchMessages(conversationId);
-  console.log("[debug] fetched count:", encryptedMessages.length);
 
   const results: DecryptedMessage[] = [];
 
@@ -79,12 +78,10 @@ export async function getDecryptedMessages(
           isDeleted: false,
         });
       }
-    } catch (e) {
-      console.error("[debug] decrypt/download failed for message", msg.id, msg.messageType, e);
+    } catch {
       continue;
     }
   }
 
-  console.log("[debug] results count:", results.length);
   return results;
 }
