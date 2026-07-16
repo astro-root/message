@@ -9,6 +9,7 @@ export type EncryptedMessage = {
   createdAt: string;
   messageType: MessageType;
   mediaPath: string | null;
+  deletedAt: string | null;
 };
 
 export type DecryptedMessage = {
@@ -19,6 +20,7 @@ export type DecryptedMessage = {
   messageType: MessageType;
   plaintext?: string;
   imageObjectUrl?: string;
+  isDeleted: boolean;
 };
 
 export type ConversationSummary = {

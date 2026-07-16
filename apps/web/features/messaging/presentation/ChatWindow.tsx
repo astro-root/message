@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { getDecryptedMessages } from "@/features/messaging/application/get-messages";
 import { sendMessage } from "@/features/messaging/application/send-message";
 import { sendImageMessage } from "@/features/messaging/application/send-image-message";
-import { subscribeToNewMessages } from "@/features/messaging/infrastructure/message-repository";
+import {
+  subscribeToNewMessages,
+  deleteMessage,
+} from "@/features/messaging/infrastructure/message-repository";
 import { decryptMessage } from "@/features/messaging/infrastructure/message-crypto";
 import { decryptMedia } from "@/features/messaging/infrastructure/media-crypto";
 import { downloadEncryptedMedia } from "@/features/messaging/infrastructure/media-repository";
@@ -67,6 +70,15 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
 
     const messageUnsubscribe = subscribeToNewMessages(conversationId, async (encrypted) => {
       try {
+        if (encrypted.deletedAt) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === encrypted.id ? { ...m, isDeleted: true } : m,
+            ),
+          );
+          return;
+        }
+
         const myKeyPair = await loadKeyPair(currentUserId);
         const senderPublicKey = await fetchPublicKey(encrypted.senderId);
         if (!myKeyPair || !senderPublicKey) return;
@@ -82,7 +94,9 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
             senderPublicKey,
             myKeyPair.privateKey,
           );
-          const imageObjectUrl = URL.createObjectURL(new Blob([new Uint8Array(imageBytes).buffer as ArrayBuffer]));
+          const imageObjectUrl = URL.createObjectURL(
+            new Blob([new Uint8Array(imageBytes).buffer as ArrayBuffer]),
+          );
 
           setMessages((prev) => [
             ...prev,
@@ -93,6 +107,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
               createdAt: encrypted.createdAt,
               messageType: "image",
               imageObjectUrl,
+              isDeleted: false,
             },
           ]);
         } else {
@@ -112,6 +127,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
               createdAt: encrypted.createdAt,
               messageType: "text",
               plaintext,
+              isDeleted: false,
             },
           ]);
         }
@@ -168,6 +184,7 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         createdAt: new Date().toISOString(),
         messageType: "text",
         plaintext: text,
+        isDeleted: false,
       },
     ]);
   }
@@ -200,8 +217,20 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
         createdAt: new Date().toISOString(),
         messageType: "image",
         imageObjectUrl: URL.createObjectURL(file),
+        isDeleted: false,
       },
     ]);
+  }
+
+  async function handleDelete(messageId: string) {
+    try {
+      await deleteMessage(messageId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, isDeleted: true } : m)),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "削除に失敗しました。");
+    }
   }
 
   const lastOwnMessageId = [...messages]
@@ -238,24 +267,58 @@ export function ChatWindow({ conversationId, currentUserId, otherUserId }: Props
             const showReadLabel =
               isMine && m.id === lastOwnMessageId && readMessageIds.has(m.id);
 
-            return (
-              <div key={m.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-                {m.messageType === "image" && m.imageObjectUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={m.imageObjectUrl}
-                    alt="送信された画像"
-                    className="max-w-[75%] rounded-xl"
-                  />
-                ) : (
-                  <div
-                    className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
-                      isMine ? "bg-blue-700 text-white" : "bg-neutral-800 text-neutral-100"
-                    }`}
-                  >
-                    {m.plaintext}
+            if (m.isDeleted) {
+              return (
+                <div
+                  key={m.id}
+                  className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}
+                >
+                  <div className="max-w-[75%] rounded-xl border border-neutral-800 px-3 py-2 text-sm italic text-neutral-500">
+                    メッセージは削除されました
                   </div>
-                )}
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={m.id}
+                className={`group flex flex-col ${isMine ? "items-end" : "items-start"}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  {isMine && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(m.id)}
+                      className="hidden text-neutral-600 hover:text-red-400 group-hover:block"
+                      aria-label="削除"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.5 4.478v.227a48.816 48.816 0 013.878.512.75.75 0 11-.256 1.478l-.209-.035-1.05 12.607a3 3 0 01-2.991 2.733H8.128a3 3 0 01-2.991-2.733L4.087 6.66l-.209.035a.75.75 0 01-.256-1.478A48.567 48.567 0 017.5 4.705v-.227c0-1.564 1.213-2.9 2.816-2.951a52.662 52.662 0 013.369 0c1.603.051 2.815 1.387 2.815 2.951zm-6.136-1.452a51.196 51.196 0 013.273 0C14.39 3.05 15 3.684 15 4.478v.113a49.488 49.488 0 00-6 0v-.113c0-.794.609-1.428 1.364-1.452zm-.355 5.945a.75.75 0 10-1.5.058l.347 9a.75.75 0 101.499-.058l-.346-9zm5.48.058a.75.75 0 10-1.498-.058l-.347 9a.75.75 0 001.5.058l.345-9z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                  {m.messageType === "image" && m.imageObjectUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={m.imageObjectUrl}
+                      alt="送信された画像"
+                      className="max-w-[75%] rounded-xl"
+                    />
+                  ) : (
+                    <div
+                      className={`max-w-[75%] rounded-xl px-3 py-2 text-sm ${
+                        isMine ? "bg-blue-700 text-white" : "bg-neutral-800 text-neutral-100"
+                      }`}
+                    >
+                      {m.plaintext}
+                    </div>
+                  )}
+                </div>
                 {showReadLabel && (
                   <span className="mt-0.5 text-xs text-neutral-500">既読</span>
                 )}

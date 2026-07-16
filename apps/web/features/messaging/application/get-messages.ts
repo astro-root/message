@@ -26,6 +26,18 @@ export async function getDecryptedMessages(
   const results: DecryptedMessage[] = [];
 
   for (const msg of encryptedMessages) {
+    if (msg.deletedAt) {
+      results.push({
+        id: msg.id,
+        conversationId: msg.conversationId,
+        senderId: msg.senderId,
+        createdAt: msg.createdAt,
+        messageType: msg.messageType,
+        isDeleted: true,
+      });
+      continue;
+    }
+
     try {
       if (msg.messageType === "image") {
         if (!msg.mediaPath) continue;
@@ -47,6 +59,7 @@ export async function getDecryptedMessages(
           createdAt: msg.createdAt,
           messageType: "image",
           imageObjectUrl,
+          isDeleted: false,
         });
       } else {
         const plaintext = await decryptMessage(
@@ -62,6 +75,7 @@ export async function getDecryptedMessages(
           createdAt: msg.createdAt,
           messageType: "text",
           plaintext,
+          isDeleted: false,
         });
       }
     } catch {

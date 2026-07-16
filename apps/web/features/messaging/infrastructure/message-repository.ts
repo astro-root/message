@@ -17,7 +17,7 @@ export async function fetchMessages(
 
   const { data, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, ciphertext, nonce, created_at, message_type, media_path")
+    .select("id, conversation_id, sender_id, ciphertext, nonce, created_at, message_type, media_path, deleted_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
 
@@ -34,6 +34,7 @@ export async function fetchMessages(
     createdAt: row.created_at,
     messageType: row.message_type as "text" | "image",
     mediaPath: row.media_path,
+    deletedAt: row.deleted_at,
   }));
 }
 
@@ -94,6 +95,23 @@ export async function sendEncryptedMessage(
   return insertMessageRow(conversationId, senderId, "text", ciphertext, nonce);
 }
 
+/**
+ * 自分が送ったメッセージを論理削除する（deleted_atを設定）。
+ * ciphertext/nonceは残すが、UIでは削除済みとして扱い、内容を表示しない。
+ */
+export async function deleteMessage(messageId: string): Promise<void> {
+  const supabase = createBrowserSupabaseClient();
+
+  const { error } = await supabase
+    .from("messages")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", messageId);
+
+  if (error) {
+    throw new Error(`メッセージの削除に失敗しました: ${error.message}`);
+  }
+}
+
 export function subscribeToNewMessages(
   conversationId: string,
   onNewMessage: (message: EncryptedMessage) => void,
@@ -135,6 +153,7 @@ export function subscribeToNewMessages(
             createdAt: row.created_at,
             messageType: row.message_type,
             mediaPath: row.media_path,
+            deletedAt: row.deleted_at,
           });
         },
       )
